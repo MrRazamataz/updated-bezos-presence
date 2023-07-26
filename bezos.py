@@ -6,13 +6,15 @@ import threading
 import signal
 import sys
 import time
+
+import requests
 from pypresence import Presence
 import re
 
-from winsdk.windows.media.control import GlobalSystemMediaTransportControlsSessionManager as MediaManager # winrt to winsdk for python 3.10 support
+from winsdk.windows.media.control import GlobalSystemMediaTransportControlsSessionManager as MediaManager
 
 # https://stackoverflow.com/questions/65011660/how-can-i-get-the-title-of-the-currently-playing-media-in-windows-10-with-python
-
+print("Loading... please wait!")
 settings = {
     "bezos_mode": False,
     "remove_explicit": True,
@@ -23,19 +25,9 @@ settings = {
     "validApps": ["*"],
     "listening_to": "",
     "artist_first": False,
-    "photo_override": "hub",
+    "photo_override": "amazon",
     "apps": {
-        "amazon": ["amazon", "Amazon Music", ["Amazon Music.exe"]],
-        "spotify": ["spotify", "Spotify", ["Spotify.exe"]],
-        "itunes": ["itunes", "iTunes", ["iTunes.exe"]],
-        "edge": ["edge", "Microsoft Edge", ["msedge.exe"]],
-        "chrome": ["chrome", "Google Chrome", ["chrome.exe"]],
-        "firefox": ["firefox", "Firefox", ["firefox.exe"]],
-        "hub": ["hub", "The Hub", []],
-        "youtube": ["youtube", "YouTube", []],
-        "twitch": ["twitch", "Twitch", ["Twitch.exe"]],
-        "tiktok": ["tiktok", "TikTok", ["TikTok.exe"]],
-        "netflix": ["netflix", "Netflix", ["Netflix.exe"]],
+        "amazon": ["amazon", "Amazon Music", ["Amazon Music.exe"]]
     }
 }
 default = {
@@ -45,6 +37,17 @@ default = {
     "app_name": "",
 }
 track = dict(default)
+
+
+def get_album_cover(title):
+    title = title.replace("&", "and")
+    r = requests.get(f"https://some-random-api.ml/lyrics?title={title}")
+    r = r.json()
+    try:
+        album_cover_url = r["thumbnail"]["genius"]
+        return album_cover_url
+    except KeyError:
+        return None
 
 
 async def get_media_info(validApps):
@@ -96,9 +99,9 @@ def connect(thisLoop):
     while True:
         try:
             if (settings["bezos_mode"]):
-                RPC = Presence(client_id='919485848028872715',loop=thisLoop)
+                RPC = Presence(client_id='960500541962735616', loop=thisLoop)
             else:
-                RPC = Presence(client_id='917341970790244362',loop=thisLoop)
+                RPC = Presence(client_id='960500541962735616', loop=thisLoop)
             RPC.connect()
             return RPC
         except Exception as e:
@@ -108,23 +111,23 @@ def connect(thisLoop):
 
 
 def checkMusic(loop):
-    RPC=connect(loop)
+    RPC = connect(loop)
     while True:
         media = asyncio.run(get_media_info(settings["validApps"]))
         if (media == None):
             media = dict(default)
         appName = media['app_name']
         media = {k: v for k,
-                v in media.items() if k in track}
+                          v in media.items() if k in track}
         if (media != track):
             track.update(media)
             data = [track['title'], track['artist'], track['album_title']]
             if (data[0] == "" and data[1] == "" and data[2] == ""):
                 try:
                     RPC.clear()
-                    print("Cleared")
+                    print("Cleared (Amazon Music goofed the names)")
                 except:
-                    RPC=connect(loop)
+                    RPC = connect(loop)
             else:
                 if (settings['artist_first']):
                     data = [track['artist'], track['title'], track['album_title']]
@@ -156,7 +159,7 @@ def checkMusic(loop):
                         if (data[i].find("FT.") != -1):
                             data[i] = data[i][:data[i].find("FT.")].strip()
 
-                header = settings["listening_to"]+data[0]
+                header = settings["listening_to"] + data[0]
                 details = data[1]
                 if (data[2] != ""):
                     if (data[1] != ""):
@@ -171,14 +174,19 @@ def checkMusic(loop):
                     photoData = ["jeffrey", "Jeffrey Music"]
                 elif (appName != ""):
                     photoData = settings["apps"][appName]
-
+                # photoData = ["amazon", "amazon_music_shit"]
+                search_term = f"{data[0]} {data[1]}"
+                image_url = get_album_cover(search_term)
+                if not image_url:
+                    image_url = "amazon"
+                print(image_url)
                 try:
                     if (details == ""):
                         RPC.update(
-                            state=header, large_image=photoData[0], large_text=photoData[1])
+                            state=header, large_image=image_url, large_text=photoData[1])
                     else:
                         RPC.update(state=details, details=header,
-                                large_image=photoData[0], large_text=photoData[1])
+                                   large_image=image_url, large_text=photoData[1])
                     print(data)
                 except:
                     RPC = connect(loop)
