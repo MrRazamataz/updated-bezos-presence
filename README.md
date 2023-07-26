@@ -1,3 +1,13 @@
+# Modifications in this fork
+* Switched to winsdk for Python 3.10+ support (this is now merged to upsteam project).
+* Can attempt to fetch the album art using the API https://some-random-api.com/lyrics?title=
+* If album art not found, image is set to: ![amazon music shit](https://github.com/MrRazamataz/updated-bezos-presence/assets/56600481/f1d8c8fb-9584-41ff-8b05-cc65afd54d3a)
+
+
+
+
+
+
 # Bezos Presence
 ![jeffrey](./assets/jeff.jpg)
 ## Discord Integration for Amazon Music (and other things)
